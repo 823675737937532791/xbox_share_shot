@@ -17,6 +17,8 @@ import pygame
 DEFAULT_CONFIG_PATH = Path("~/.config/xbox-share-shot/config.ini").expanduser()
 DEFAULT_BUTTON_INDEX = 15
 DEFAULT_DEBOUNCE_SECONDS = 0.7
+POLL_INTERVAL_SECONDS = 0.01
+RECONNECT_INTERVAL_SECONDS = 1.0
 
 
 def load_config(path: Path) -> configparser.ConfigParser:
@@ -68,13 +70,20 @@ def trigger_screenshot(config_path: Path) -> int:
     return result.returncode
 
 
-def wait_for_first_joystick():
+def init_pygame() -> None:
     pygame.init()
     pygame.joystick.init()
+
+
+def refresh_joysticks() -> None:
+    pygame.joystick.quit()
+    pygame.joystick.init()
+
+
+def wait_for_first_joystick():
     announced_wait = False
     while True:
-        pygame.joystick.quit()
-        pygame.joystick.init()
+        refresh_joysticks()
         count = pygame.joystick.get_count()
         if count > 0:
             joystick = pygame.joystick.Joystick(0)
@@ -83,42 +92,73 @@ def wait_for_first_joystick():
         if not announced_wait:
             print("Waiting for controller...", flush=True)
             announced_wait = True
-        time.sleep(1.0)
+        time.sleep(RECONNECT_INTERVAL_SECONDS)
 
 
 def detect_mode() -> None:
-    joystick = wait_for_first_joystick()
-    print(f"Connected joystick: {joystick.get_name()}", flush=True)
-    print("Press controller buttons. Ctrl+C to exit.", flush=True)
-    seen = set()
     while True:
-        for event in pygame.event.get():
-            if event.type == pygame.JOYBUTTONDOWN and event.button not in seen:
-                seen.add(event.button)
-                print(f"Button index: {event.button}", flush=True)
-        time.sleep(0.01)
+        joystick = wait_for_first_joystick()
+        print(f"Connected joystick: {joystick.get_name()}", flush=True)
+        print("Press controller buttons. Ctrl+C to exit.", flush=True)
+        seen = set()
+        active_instance_id = joystick.get_instance_id()
+        while True:
+            pygame.event.pump()
+            if not joystick.get_attached():
+                print("Controller disconnected.", flush=True)
+                break
+            for event in pygame.event.get():
+                if event.type == pygame.JOYBUTTONDOWN and event.button not in seen:
+                    seen.add(event.button)
+                    print(f"Button index: {event.button}", flush=True)
+                if (
+                    event.type == pygame.JOYDEVICEREMOVED
+                    and getattr(event, "instance_id", None) == active_instance_id
+                ):
+                    print("Controller disconnected.", flush=True)
+                    break
+            else:
+                time.sleep(POLL_INTERVAL_SECONDS)
+                continue
+            break
 
 
 def watch_mode(button_index: int, debounce_seconds: float, config_path: Path) -> None:
-    joystick = wait_for_first_joystick()
-    print(
-        f"Watching {joystick.get_name()} for button: {button_index}",
-        flush=True,
-    )
     last_trigger = 0.0
     while True:
-        for event in pygame.event.get():
-            if event.type == pygame.JOYBUTTONDOWN and event.button == button_index:
-                now = time.monotonic()
-                if now - last_trigger >= debounce_seconds:
-                    print(
-                        f"{datetime.now().isoformat(timespec='seconds')} "
-                        f"button {event.button} down",
-                        flush=True,
-                    )
-                    trigger_screenshot(config_path)
-                    last_trigger = now
-        time.sleep(0.01)
+        joystick = wait_for_first_joystick()
+        active_instance_id = joystick.get_instance_id()
+        print(
+            f"Watching {joystick.get_name()} for button: {button_index}",
+            flush=True,
+        )
+        while True:
+            pygame.event.pump()
+            if not joystick.get_attached():
+                print("Controller disconnected. Waiting to reconnect...", flush=True)
+                break
+            disconnected = False
+            for event in pygame.event.get():
+                if event.type == pygame.JOYBUTTONDOWN and event.button == button_index:
+                    now = time.monotonic()
+                    if now - last_trigger >= debounce_seconds:
+                        print(
+                            f"{datetime.now().isoformat(timespec='seconds')} "
+                            f"button {event.button} down",
+                            flush=True,
+                        )
+                        trigger_screenshot(config_path)
+                        last_trigger = now
+                if (
+                    event.type == pygame.JOYDEVICEREMOVED
+                    and getattr(event, "instance_id", None) == active_instance_id
+                ):
+                    print("Controller disconnected. Waiting to reconnect...", flush=True)
+                    disconnected = True
+                    break
+            if disconnected:
+                break
+            time.sleep(POLL_INTERVAL_SECONDS)
 
 
 def main() -> int:
@@ -156,6 +196,7 @@ def main() -> int:
 
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
+    init_pygame()
 
     try:
         if args.detect:
