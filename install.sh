@@ -23,19 +23,42 @@ python3 -m venv "$VENV_DIR"
 cat > "$APP_DIR/Xbox Share Shot.command" <<EOF
 #!/bin/zsh
 cd "$PROJECT_DIR"
-exec "$VENV_DIR/bin/python3" "$PROJECT_DIR/xbox_share_shot.py" --config "$CONFIG_PATH"
+if pgrep -f "$PROJECT_DIR/xbox_share_shot.py --config $CONFIG_PATH" >/dev/null 2>&1; then
+  echo "Xbox Share Shot is already running."
+  echo "Press Enter to close this window."
+  read
+  exit 0
+fi
+echo "Starting Xbox Share Shot..."
+"$VENV_DIR/bin/python3" "$PROJECT_DIR/xbox_share_shot.py" --config "$CONFIG_PATH"
+status=\$?
+echo
+echo "Xbox Share Shot exited with status \$status"
+echo "Press Enter to close this window."
+read
 EOF
 
 cat > "$APP_DIR/Detect Xbox Share Button.command" <<EOF
 #!/bin/zsh
 cd "$PROJECT_DIR"
-exec "$VENV_DIR/bin/python3" "$PROJECT_DIR/xbox_share_shot.py" --config "$CONFIG_PATH" --detect
+echo "Starting detect mode..."
+"$VENV_DIR/bin/python3" "$PROJECT_DIR/xbox_share_shot.py" --config "$CONFIG_PATH" --detect
+status=\$?
+echo
+echo "Detect mode exited with status \$status"
+echo "Press Enter to close this window."
+read
 EOF
 
 cat > "$APP_DIR/Stop Xbox Share Shot.command" <<EOF
 #!/bin/zsh
-pkill -f "$PROJECT_DIR/xbox_share_shot.py" >/dev/null 2>&1 || true
-echo "Stopped Xbox Share Shot."
+if pkill -f "$PROJECT_DIR/xbox_share_shot.py" >/dev/null 2>&1; then
+  echo "Stopped Xbox Share Shot."
+else
+  echo "Xbox Share Shot was not running."
+fi
+echo "Press Enter to close this window."
+read
 EOF
 
 chmod +x \
