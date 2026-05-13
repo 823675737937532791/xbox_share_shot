@@ -1,74 +1,134 @@
 # Xbox Share Shot
 
-一个尽量轻量的 macOS 小工具。
+一个尽量轻量的 macOS 主屏截图方案。
 
-它会监听 Xbox 手柄上的一个固定按钮，然后调用 macOS 自带的 `screencapture` 把截图保存到你指定的目录。
+这版仓库默认推荐的用法是：
 
-这个项目最初就是为 Xbox 手柄“分享/截图键”做的，所以默认配置已经按下面这套来：
+`手柄 Share 键 -> 手柄映射软件发出快捷键 -> macOS 快捷指令 -> 运行截图脚本`
 
-- 默认按钮编号：`15`
-- 默认保存目录：`~/Pictures/GameScreenshots`
-- 默认文件名前缀：`XboxScreenshot`
-- 默认显示器：`1`（通常是主屏）
+这样不需要你每次重新启动一个常驻监听脚本，也更接近系统级工作流。
 
-## 适用场景
+## 推荐方案
 
-- 想把 Xbox 手柄某个按钮映射成截图
-- 想要一个非常轻量、依赖少、逻辑简单的方案
-- 想自己改保存目录，而不是被系统默认截图目录限制
+默认目标：
 
-## 已知前提
+- 只截主屏
+- 保存到 `~/Pictures/GameScreenshots`
+- 文件名前缀：`XboxScreenshot`
 
-- 当前实现依赖 `pygame` 读取手柄按钮
-- 截图调用的是 macOS 自带的 `/usr/sbin/screencapture`
-- 这套方案在普通图形会话里工作更稳定
-- 有些环境里，完全后台化的 `launchd` 方式会不稳定
+核心脚本是：
 
-换句话说，如果你发现“前台运行可以，后台常驻不稳定”，这不是你的配置错了，而是 macOS/云环境权限模型本身比较挑。
+- `main_screen_screenshot.sh`
 
-## 快速安装
+它做的事情很简单：
+
+1. 创建 `~/Pictures/GameScreenshots`
+2. 调用 macOS 自带的 `screencapture`
+3. 只截 `display_index = 1`
+4. 按时间戳保存 PNG
+
+## 最终效果
+
+推荐链路是：
+
+`Share 键 -> 映射软件 -> Control + Option + Command + S -> 快捷指令 -> main_screen_screenshot.sh`
+
+你只需要在手柄映射软件里把 Share 键映射成一个冷门组合键，然后让 macOS 快捷指令绑定同一个快捷键。
+
+## 快速开始
+
+### 1. 给脚本执行权限
 
 ```bash
-chmod +x install.sh
-./install.sh
+chmod +x main_screen_screenshot.sh
 ```
 
-安装脚本会做几件事：
+### 2. 手动测试脚本
 
-1. 创建虚拟环境 `.venv`
-2. 安装 `pygame`
-3. 生成配置文件 `~/.config/xbox-share-shot/config.ini`
-4. 生成两个可双击启动的 `.command` 文件到 `~/Applications`
+```bash
+zsh "./main_screen_screenshot.sh"
+```
 
-生成的启动器：
-
-- `~/Applications/Xbox Share Shot.command`
-- `~/Applications/Detect Xbox Share Button.command`
-- `~/Applications/Stop Xbox Share Shot.command`
-
-## 使用方法
-
-### 1. 先检测按钮编号
-
-如果你不是用默认的 Xbox 分享键，先双击：
-
-`~/Applications/Detect Xbox Share Button.command`
-
-然后按一下手柄按钮，终端里会打印类似：
+成功后，截图会出现在：
 
 ```text
-Button index: 15
+~/Pictures/GameScreenshots
 ```
 
-### 2. 修改配置
+### 3. 配置快捷指令
 
-配置文件路径：
+详细步骤见：
+
+- `SHORTCUT_SETUP.md`
+
+你需要在「快捷指令」App 里新建一个快捷指令，比如：
+
+- 名字：`主屏截图`
+- 动作：`运行 Shell 脚本`
+- 内容：
+
+```bash
+zsh "/Users/lantianxing/Documents/Playground/main_screen_screenshot.sh"
+```
+
+然后给它分配快捷键，例如：
 
 ```text
-~/.config/xbox-share-shot/config.ini
+Control + Option + Command + S
 ```
 
-默认内容：
+最后在你的手柄映射软件里，把 Share 键映射成同一个快捷键即可。
+
+## 为什么现在主推快捷指令
+
+- 不依赖前台常驻监听器
+- 不怕手柄断开再连后脚本状态乱掉
+- 逻辑更简单
+- 更适合长期日常使用
+
+## 项目文件
+
+```text
+.
+├── SHORTCUT_SETUP.md
+├── config.example.ini
+├── install.sh
+├── main_screen_screenshot.sh
+├── README.md
+├── requirements.txt
+├── take_screenshot.py
+└── xbox_share_shot.py
+```
+
+## install.sh 现在做什么
+
+安装脚本现在只负责：
+
+1. 创建默认配置目录
+2. 复制 `config.example.ini`
+3. 确保 `main_screen_screenshot.sh` 可执行
+4. 在 `~/Applications` 放一个便于手动测试的启动器
+
+它不会再默认帮你生成旧的监听模式启动器。
+
+## 旧监听模式
+
+仓库里仍然保留：
+
+- `xbox_share_shot.py`
+- `take_screenshot.py`
+
+这是之前的“Python 监听手柄按钮 -> 调用截图 helper”方案，主要作为兼容和参考保留。
+
+如果你就是想自己跑监听器，它依然能用；但对当前需求来说，不再是首选方案。
+
+## 旧监听模式配置
+
+配置文件示例在：
+
+- `config.example.ini`
+
+当前默认值：
 
 ```ini
 [mapper]
@@ -81,121 +141,13 @@ filename_prefix = XboxScreenshot
 display_index = 1
 ```
 
-可改项：
+## 已知限制
 
-- `button_index`
-- `debounce_seconds`
-- `save_dir`
-- `filename_prefix`
-- `display_index`
+目前可调用工具可以帮你准备脚本、配置、文档和仓库内容，但不能可靠地替你在「快捷指令」App 里自动创建快捷指令并分配键盘快捷键。
 
-如果你是多显示器，并且只想截主屏，保留：
+所以这一步仍然需要你在图形界面里手动做一次。
 
-```ini
-display_index = 1
-```
-
-如果你想改成别的屏幕，就把它改成 `2`、`3` 等对应编号。
-
-### 3. 启动监听
-
-双击：
-
-`~/Applications/Xbox Share Shot.command`
-
-保持这个终端窗口开着，然后按你的手柄按钮截图。
-
-如果你中途把手柄关掉再打开，监听器会自动继续等待并在手柄重新连接后恢复工作，不需要重新配按钮。
-
-### 4. 停止监听
-
-双击：
-
-`~/Applications/Stop Xbox Share Shot.command`
-
-## 命令行用法
-
-```bash
-.venv/bin/python3 xbox_share_shot.py --config ~/.config/xbox-share-shot/config.ini
-```
-
-检测模式：
-
-```bash
-.venv/bin/python3 xbox_share_shot.py --config ~/.config/xbox-share-shot/config.ini --detect
-```
-
-临时覆盖按钮编号：
-
-```bash
-.venv/bin/python3 xbox_share_shot.py --config ~/.config/xbox-share-shot/config.ini --button-index 15
-```
-
-## 项目结构
-
-```text
-.
-├── config.example.ini
-├── install.sh
-├── main_screen_screenshot.sh
-├── README.md
-├── requirements.txt
-├── take_screenshot.py
-└── xbox_share_shot.py
-```
-
-## 为什么拆成两个 Python 文件
-
-这不是为了“架构好看”，而是为了稳定。
-
-在一些环境里，监听手柄的长驻进程自己直接截图会失败；但让监听进程只负责收按钮，再拉起一个短命 helper 去截图，反而更稳。
-
-所以现在的结构是：
-
-1. `xbox_share_shot.py` 负责监听按钮
-2. `take_screenshot.py` 负责真正截图
-
-## 如果你偏好“快捷指令”方案
-
-仓库里已经带了一个可直接复用的脚本：
-
-`main_screen_screenshot.sh`
-
-它默认会：
-
-- 创建 `~/Pictures/GameScreenshots`
-- 只截 `display_index = 1`
-- 生成按时间戳命名的 PNG
-
-如果你以后还是想改成：
-
-`手柄 Share 键 -> 映射成快捷键 -> 快捷指令 -> 运行 Shell 脚本`
-
-那就可以直接把这个脚本内容贴进快捷指令，不用再从头写。
-
-## 后续可以加什么
-
-- 多按钮映射
-- 成功提示方式可配置
-- 自动开机启动
-- 针对不同游戏切换不同保存目录
-
-## 当前建议
-
-如果你已经验证自己的按钮编号固定，而且主要需求只是“随时改保存目录”，那就只改 `config.ini` 里的 `save_dir` 就够了。
-
-如果你的使用方式是“平时一直打游戏，想到时就随手截图”，建议：
-
-1. 先双击一次 `Xbox Share Shot.command`
-2. 保持那个终端窗口挂着
-3. 之后手柄断开再连也不用重新启动
-
-这也是这个项目故意保持轻量的原因：
-
-- 不强绑复杂 UI
-- 不强绑系统快捷键模拟
-- 不把行为做得太重
-- 先把“稳定截图”放在第一位
+做完后，日常就不需要再碰这套配置了。
 
 ## License
 
