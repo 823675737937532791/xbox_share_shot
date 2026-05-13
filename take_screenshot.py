@@ -11,6 +11,7 @@ import sys
 
 
 DEFAULT_PREFIX = "XboxScreenshot"
+DEFAULT_DISPLAY_INDEX = 1
 
 
 def load_config(path: Path) -> configparser.ConfigParser:
@@ -21,13 +22,31 @@ def load_config(path: Path) -> configparser.ConfigParser:
 
 def build_output_path(config: configparser.ConfigParser) -> Path:
     save_dir = Path(
-        config.get("screenshot", "save_dir", fallback="~/Desktop/游戏截图")
+        config.get("screenshot", "save_dir", fallback="~/Pictures/GameScreenshots")
     ).expanduser()
     save_dir.mkdir(parents=True, exist_ok=True)
 
     prefix = config.get("screenshot", "filename_prefix", fallback=DEFAULT_PREFIX)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     return save_dir / f"{prefix}_{timestamp}.png"
+
+
+def build_screencapture_command(
+    config: configparser.ConfigParser,
+    output_path: Path,
+) -> list[str]:
+    display_index = config.getint(
+        "screenshot",
+        "display_index",
+        fallback=DEFAULT_DISPLAY_INDEX,
+    )
+    return [
+        "/usr/sbin/screencapture",
+        "-x",
+        "-D",
+        str(display_index),
+        str(output_path),
+    ]
 
 
 def main() -> int:
@@ -43,7 +62,7 @@ def main() -> int:
     output_path = build_output_path(config)
 
     result = subprocess.run(
-        ["/usr/sbin/screencapture", "-x", str(output_path)],
+        build_screencapture_command(config, output_path),
         check=False,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
