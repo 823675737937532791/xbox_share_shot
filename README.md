@@ -7,8 +7,9 @@
 这个项目最初就是为 Xbox 手柄“分享/截图键”做的，所以默认配置已经按下面这套来：
 
 - 默认按钮编号：`15`
-- 默认保存目录：`~/Desktop/游戏截图`
+- 默认保存目录：`~/Pictures/GameScreenshots`
 - 默认文件名前缀：`XboxScreenshot`
+- 默认显示器：`1`（通常是主屏）
 
 ## 适用场景
 
@@ -75,8 +76,9 @@ button_index = 15
 debounce_seconds = 0.7
 
 [screenshot]
-save_dir = ~/Desktop/游戏截图
+save_dir = ~/Pictures/GameScreenshots
 filename_prefix = XboxScreenshot
+display_index = 1
 ```
 
 可改项：
@@ -85,6 +87,15 @@ filename_prefix = XboxScreenshot
 - `debounce_seconds`
 - `save_dir`
 - `filename_prefix`
+- `display_index`
+
+如果你是多显示器，并且只想截主屏，保留：
+
+```ini
+display_index = 1
+```
+
+如果你想改成别的屏幕，就把它改成 `2`、`3` 等对应编号。
 
 ### 3. 启动监听
 
@@ -126,6 +137,7 @@ filename_prefix = XboxScreenshot
 .
 ├── config.example.ini
 ├── install.sh
+├── main_screen_screenshot.sh
 ├── README.md
 ├── requirements.txt
 ├── take_screenshot.py
@@ -142,6 +154,24 @@ filename_prefix = XboxScreenshot
 
 1. `xbox_share_shot.py` 负责监听按钮
 2. `take_screenshot.py` 负责真正截图
+
+## 如果你偏好“快捷指令”方案
+
+仓库里已经带了一个可直接复用的脚本：
+
+`main_screen_screenshot.sh`
+
+它默认会：
+
+- 创建 `~/Pictures/GameScreenshots`
+- 只截 `display_index = 1`
+- 生成按时间戳命名的 PNG
+
+如果你以后还是想改成：
+
+`手柄 Share 键 -> 映射成快捷键 -> 快捷指令 -> 运行 Shell 脚本`
+
+那就可以直接把这个脚本内容贴进快捷指令，不用再从头写。
 
 ## 后续可以加什么
 
